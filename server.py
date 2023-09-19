@@ -1,7 +1,9 @@
 #  coding: utf-8 
 import socketserver
+import os
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
+# Copyright 2023 Kai Luedemann
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -26,13 +28,38 @@ import socketserver
 
 # try: curl -v -X GET http://127.0.0.1:8080/
 
+# Sources: 
+# https://opensource.stackexchange.com/questions/9199/how-to-label-and-license-derivative-works-made-under-apache-license-version-2-0
+
 
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.data = self.request.recv(1024).strip()
-        print ("Got a request of: %s\n" % self.data)
-        self.request.sendall(bytearray("OK",'utf-8'))
+        self.parse_request(self.data)
+        #print ("Got a request of: %s\n" % self.data)
+        #self.request.sendall(bytearray("OK",'utf-8'))
+
+    def parse_request(self, data):
+        lines = data.splitlines()
+        request, path, standard = lines[0].split(b' ')
+        #print(request, path, standard)
+        assert standard == b'HTTP/1.1', "Only HTTP/1.1 is supported"
+        if request.upper() != b'GET':
+            response = b'HTTP/1.1 405 Method Not Allowed'
+        else:
+            response = b'HTTP/1.1 200 OK\n\n'
+            if path.endswith(b'/'):
+                path += b'index.html'
+            path = os.path.join("www", path.decode())
+            print(path)
+            try:
+                send_file = open(path, 'rb')
+            except FileNotFoundError:
+                response = b'HTTP/1.1 404 Not Found'
+            else:
+                response += send_file.read()
+        self.request.sendall(response)
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
