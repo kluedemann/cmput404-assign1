@@ -66,8 +66,19 @@ class Response:
 class RequestHandler:
 
     def handle(self, request):
+        """Handle the incoming HTTP request and return a response.
+        
+        Params:
+            request - the incoming Request object
+
+        Returns: the outgoing Response object
+        """
+
+        # Check method
         if request.method.upper() != 'GET':
             return Response(405)
+        
+        # Check path
         path = self.get_path(request.path)
         if not os.path.isfile(path):
             if os.path.isdir(path):
@@ -77,12 +88,22 @@ class RequestHandler:
                 return Response(404)
         elif not path.startswith('www'):
             return Response(404)
+        
+        # Get content
         with open(path, 'rb') as in_file:
             content = in_file.read()
         headers = self.get_headers(path, content)
+
         return Response(200, content, headers)
 
     def get_headers(self, path, content):
+        """Return the HTTP headers to include with the response based
+        on the file path and content.
+        
+        Params:
+            path - the path string
+            content - the binary content to send with the response
+        """
         headers = {}
         headers["content-length"] = len(content)
         if path.split(".")[-1] == 'html':
@@ -90,9 +111,13 @@ class RequestHandler:
         elif path.split(".")[-1] == 'css':
             headers["content-type"] = "text/css"
         return headers
-            
         
     def get_path(self, path):
+        """Return the file path to search for given the GET address.
+        
+        Params:
+            path - the path string
+        """
         path = 'www' + path 
         if path.endswith('/'):
             path = os.path.join(path, 'index.html')
@@ -116,8 +141,15 @@ class Request:
         self.parse(data)
 
     def parse(self, data):
+        """Parse the incoming HTTP request
+        
+        Params:
+            data - the binary incoming HTTP request
+        """
         lines = data.decode().splitlines()
         self.method, self.path, self.standard = lines[0].split(' ')
+        
+        # Read HTTP headers
         self.headers = {}
         i = 1
         while i < len(lines) and lines[i]:
@@ -129,34 +161,14 @@ class Request:
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
+        # Read data
         self.data = self.request.recv(1024).strip()
         if self.data:
+            # Handle request and send response
             req = Request(self.data)
             response = RequestHandler().handle(req)
-            #print ("Got a request of: %s\n" % self.data)
-            #self.request.sendall(bytearray("OK",'utf-8'))
             self.request.sendall(response.build())
 
-    def parse_request(self, data):
-        lines = data.splitlines()
-        request, path, standard = lines[0].split(b' ')
-        #print(request, path, standard)
-        assert standard == b'HTTP/1.1', "Only HTTP/1.1 is supported"
-        if request.upper() != b'GET':
-            response = b'HTTP/1.1 405 Method Not Allowed'
-        else:
-            response = b'HTTP/1.1 200 OK\n\n'
-            if path.endswith(b'/'):
-                path += b'index.html'
-            path = os.path.join("www", path.decode())
-            print(path)
-            try:
-                send_file = open(path, 'rb')
-            except FileNotFoundError:
-                response = b'HTTP/1.1 404 Not Found'
-            else:
-                response += send_file.read()
-        self.request.sendall(response)
 
 if __name__ == "__main__":
     HOST, PORT = "localhost", 8080
