@@ -30,6 +30,8 @@ import os
 
 # Sources: 
 # https://opensource.stackexchange.com/questions/9199/how-to-label-and-license-derivative-works-made-under-apache-license-version-2-0
+# https://docs.python.org/3/library/os.path.html
+# https://docs.python.org/3/library/socketserver.html
 
 
 class Response:
@@ -62,9 +64,6 @@ class Response:
 
 
 class RequestHandler:
-
-    def __init__(self) -> None:
-        pass
 
     def handle(self, request):
         if request.method.upper() != 'GET':
