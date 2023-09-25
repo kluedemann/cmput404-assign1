@@ -32,13 +32,111 @@ import os
 # https://opensource.stackexchange.com/questions/9199/how-to-label-and-license-derivative-works-made-under-apache-license-version-2-0
 
 
+class Response:
+    """Represent an HTTP response to send to the client.
+    
+    Params:
+        code - the HTTP status code to send
+        content - the binary content to send
+        headers - the HTTP headers to include
+    """
+
+    def __init__(self, code=200, content=b'', headers={}) -> None:
+        self.code = code
+        self.content = content
+        self.headers = headers
+        self.codes = {
+            404: 'Not Found',
+            200: 'OK',
+            405: 'Method Not Allowed',
+            301: 'Moved Permanently'
+        }
+
+    def build(self):
+        """Return the binary response to send."""
+        resp = f"HTTP/1.1 {self.code} {self.codes[self.code]}\n"
+        for k, v in self.headers.items():
+            resp += f"{k}: {v}\n"
+        resp += '\n'
+        return resp.encode() + self.content
+
+
+class RequestHandler:
+
+    def __init__(self) -> None:
+        pass
+
+    def handle(self, request):
+        if request.method.upper() != 'GET':
+            return Response(405)
+        path = self.get_path(request.path)
+        if not os.path.isfile(path):
+            if os.path.isdir(path):
+                new_path = request.path + '/'
+                return Response(301, b'', {'Location': new_path})
+            else:
+                return Response(404)
+        elif not path.startswith('www'):
+            return Response(404)
+        with open(path, 'rb') as in_file:
+            content = in_file.read()
+        headers = self.get_headers(path, content)
+        return Response(200, content, headers)
+
+    def get_headers(self, path, content):
+        headers = {}
+        headers["content-length"] = len(content)
+        if path.split(".")[-1] == 'html':
+            headers["content-type"] = "text/html"
+        elif path.split(".")[-1] == 'css':
+            headers["content-type"] = "text/css"
+        return headers
+            
+        
+    def get_path(self, path):
+        path = 'www' + path 
+        if path.endswith('/'):
+            path = os.path.join(path, 'index.html')
+        return os.path.normpath(path)
+        
+
+class Request:
+    """Represent an HTTP request.
+    
+    Params:
+        data - the binary input request
+
+    Attributes:
+        method - the HTTP method
+        path - the path specified
+        standard - the HTTP standard used
+        headers - the HTTP headers included
+    """
+
+    def __init__(self, data) -> None:
+        self.parse(data)
+
+    def parse(self, data):
+        lines = data.decode().splitlines()
+        self.method, self.path, self.standard = lines[0].split(' ')
+        self.headers = {}
+        i = 1
+        while i < len(lines) and lines[i]:
+            key, val = lines[i].split(': ')
+            self.headers[key] = val
+            i += 1
+
+
 class MyWebServer(socketserver.BaseRequestHandler):
     
     def handle(self):
         self.data = self.request.recv(1024).strip()
-        self.parse_request(self.data)
-        #print ("Got a request of: %s\n" % self.data)
-        #self.request.sendall(bytearray("OK",'utf-8'))
+        if self.data:
+            req = Request(self.data)
+            response = RequestHandler().handle(req)
+            #print ("Got a request of: %s\n" % self.data)
+            #self.request.sendall(bytearray("OK",'utf-8'))
+            self.request.sendall(response.build())
 
     def parse_request(self, data):
         lines = data.splitlines()
