@@ -21,6 +21,8 @@ import os
 # Sources:
 # https://docs.python.org/3/library/os.path.html
 # https://docs.python.org/3/library/socketserver.html
+# https://www.rfc-editor.org/rfc/rfc2616#section-14.10
+# https://stackoverflow.com/questions/5258977/are-http-headers-case-sensitive
 
 
 class Response:
@@ -45,7 +47,10 @@ class Response:
         }
 
     def build(self):
-        """Return the binary response to send."""
+        """Return the binary response to send.
+        
+        Returns: bytes - the HTTP response to send
+        """
         resp = f"HTTP/1.1 {self.code} {self.codes[self.code]}\r\n"
         for k, v in self.headers.items():
             resp += f"{k}: {v}\r\n"
@@ -54,6 +59,12 @@ class Response:
     
 
 class ErrorResponse(Response):
+    """Represent an HTTP error response to send to the client.
+    
+    Params:
+        code - the HTTP status code to send
+        message - the error message to display
+    """
 
     def __init__(self, code=404, message='') -> None:
         content = self.build_html(code, message)
@@ -61,6 +72,13 @@ class ErrorResponse(Response):
         super().__init__(code, content, headers)
 
     def get_headers(self, content):
+        """Create the headers to send.
+        
+        Params:
+            content - the binary HTML content to send
+
+        Returns: dict - the HTTP headers as key-value pairs
+        """
         headers = {}
         headers["Content-Type"] = "text/html"
         headers["Content-Length"] = len(content)
@@ -68,9 +86,17 @@ class ErrorResponse(Response):
         return headers
     
     def build_html(self, code, message):
+        """Build the binary HTML content to send.
+        Loads an HTML template from a file and adds the error message to display.
+        
+        Params:
+            code - the HTTP status code
+            message - the error message to display on the page
+        
+        Returns: bytes - the encoded HTML to send
+        """
         with open("error_template.html", "r") as html_file:
             html = html_file.read()
-        #html = "<!DOCTYPE html>\n<html>\n\t<head>\n\t\t<title>{0}</title>\n\t</head>\n\t<body>\n\t\t<p>{1}</p>\n\t</body>\n</html>"
         return html.format(message, message).encode()
 
 
@@ -116,6 +142,8 @@ class RequestHandler:
         Params:
             path - the path string
             content - the binary content to send with the response
+
+        Returns: dict - the HTTP headers as key-value pairs
         """
         headers = {}
         headers["Content-Length"] = len(content)
@@ -131,6 +159,8 @@ class RequestHandler:
         
         Params:
             path - the path string
+
+        Returns: the normalized path of the file requested
         """
         path = 'www' + path 
         if path.endswith('/'):

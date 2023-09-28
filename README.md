@@ -30,3 +30,5 @@ References
 * https://docs.python.org/3/library/socketserver.html
 * https://docs.python.org/3/library/os.path.html
 * https://opensource.stackexchange.com/questions/9199/how-to-label-and-license-derivative-works-made-under-apache-license-version-2-0
+* https://www.rfc-editor.org/rfc/rfc2616#section-14.10
+* https://stackoverflow.com/questions/5258977/are-http-headers-case-sensitive
