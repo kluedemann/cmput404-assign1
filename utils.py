@@ -45,11 +45,32 @@ class Response:
 
     def build(self):
         """Return the binary response to send."""
-        resp = f"HTTP/1.1 {self.code} {self.codes[self.code]}\n"
+        resp = f"HTTP/1.1 {self.code} {self.codes[self.code]}\r\n"
         for k, v in self.headers.items():
-            resp += f"{k}: {v}\n"
-        resp += '\n'
+            resp += f"{k}: {v}\r\n"
+        resp += '\r\n'
         return resp.encode() + self.content
+    
+
+class ErrorResponse(Response):
+
+    def __init__(self, code=404, message='') -> None:
+        content = self.build_html(code, message)
+        headers = self.get_headers(content)
+        super().__init__(code, content, headers)
+
+    def get_headers(self, content):
+        headers = {}
+        headers["Content-Type"] = "text/html"
+        headers["Content-Length"] = len(content)
+        headers["Connection"] = "close"
+        return headers
+    
+    def build_html(self, code, message):
+        with open("error_template.html", "r") as html_file:
+            html = html_file.read()
+        #html = "<!DOCTYPE html>\n<html>\n\t<head>\n\t\t<title>{0}</title>\n\t</head>\n\t<body>\n\t\t<p>{1}</p>\n\t</body>\n</html>"
+        return html.format(message, message).encode()
 
 
 class RequestHandler:
@@ -65,7 +86,7 @@ class RequestHandler:
 
         # Check method
         if request.method.upper() != 'GET':
-            return Response(405)
+            return ErrorResponse(405, "Error 405: Invalid Method")
         
         # Check path
         path = self.get_path(request.path)
@@ -74,9 +95,9 @@ class RequestHandler:
                 new_path = request.path + '/'
                 return Response(301, b'', {'Location': new_path})
             else:
-                return Response(404)
+                return ErrorResponse(404, 'Error 404: File not found')
         elif not path.startswith('www'):
-            return Response(404)
+            return ErrorResponse(404, "Error 404: File not found")
         
         # Get content
         with open(path, 'rb') as in_file:
@@ -94,11 +115,12 @@ class RequestHandler:
             content - the binary content to send with the response
         """
         headers = {}
-        headers["content-length"] = len(content)
+        headers["Content-Length"] = len(content)
+        headers["Connection"] = "close"
         if path.split(".")[-1] == 'html':
-            headers["content-type"] = "text/html"
+            headers["Content-Type"] = "text/html"
         elif path.split(".")[-1] == 'css':
-            headers["content-type"] = "text/css"
+            headers["Content-Type"] = "text/css"
         return headers
         
     def get_path(self, path):
