@@ -40,7 +40,8 @@ class Response:
             404: 'Not Found',
             200: 'OK',
             405: 'Method Not Allowed',
-            301: 'Moved Permanently'
+            301: 'Moved Permanently',
+            400: 'Bad Request'
         }
 
     def build(self):
@@ -85,7 +86,9 @@ class RequestHandler:
         """
 
         # Check method
-        if request.method.upper() != 'GET':
+        if not request.valid:
+            return ErrorResponse(400, "Error 400: Bad Request")
+        elif request.method.upper() != 'GET':
             return ErrorResponse(405, "Error 405: Invalid Method")
         
         # Check path
@@ -149,6 +152,7 @@ class Request:
     """
 
     def __init__(self, data) -> None:
+        self.valid = True
         self.parse(data)
 
     def parse(self, data):
@@ -158,7 +162,11 @@ class Request:
             data - the binary incoming HTTP request
         """
         lines = data.decode().splitlines()
-        self.method, self.path, self.standard = lines[0].split(' ')
+
+        if lines and len(lines[0].split(' ')) == 3:
+            self.method, self.path, self.standard = lines[0].split(' ')
+        else:
+            self.valid = False
         
         # Read HTTP headers
         self.headers = {}
