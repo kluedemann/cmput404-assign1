@@ -1,9 +1,6 @@
 """Module containing utility classes for implementing the server."""
 
 
-import os
-
-
 # Copyright 2023 Kai Luedemann
 # 
 # Licensed under the Apache License, Version 2.0 (the "License");

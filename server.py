@@ -1,6 +1,5 @@
 #  coding: utf-8 
 import socketserver
-import os
 from utils import Request, ErrorResponse, Response
 
 # Copyright 2013 Abram Hindle, Eddie Antonio Santos
@@ -61,21 +60,40 @@ class MyWebServer(socketserver.BaseRequestHandler):
         
         # Check path
         path = self.get_path(request.path)
-        if not os.path.isfile(path):
-            if os.path.isdir(path):
-                new_path = request.path + '/'
-                return Response(301, b'', {'Location': new_path})
-            else:
-                return ErrorResponse(404, 'Error 404: File not found')
-        elif not path.startswith('www'):
+        if self.exits_dir(path):
             return ErrorResponse(404, "Error 404: File not found")
         
-        # Get content
-        with open(path, 'rb') as in_file:
-            content = in_file.read()
+        # Try opening file
+        try:
+            in_file = open(path, 'rb')
+        except IsADirectoryError:
+            new_path = request.path + '/'
+            return Response(301, b'', {'Location': new_path})
+        except FileNotFoundError:
+            return ErrorResponse(404, "Error 404: File not found")
+        
+        content = in_file.read()
         headers = self.get_headers(path, content)
 
         return Response(200, content, headers)
+        
+    def exits_dir(self, path):
+        """Return True if the path exits the www directory; False otherwise.
+        
+        Params:
+            path - the path string starting with www
+
+        Returns: bool - whether the path exits www/
+        """
+        depth = 0
+        for part in path.split('/'):
+            if part == '..':
+                depth  -= 1
+            elif part != '.':
+                depth += 1
+            if depth <= 0:
+                return True
+        return False
 
     def get_headers(self, path, content):
         """Return the HTTP headers to include with the response based
@@ -106,8 +124,8 @@ class MyWebServer(socketserver.BaseRequestHandler):
         """
         path = 'www' + path 
         if path.endswith('/'):
-            path = os.path.join(path, 'index.html')
-        return os.path.normpath(path)
+            path += 'index.html'
+        return path
 
 
 if __name__ == "__main__":
